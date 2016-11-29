@@ -4,6 +4,7 @@ import android.app.ProgressDialog;
 import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -17,9 +18,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileWriter;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
@@ -80,70 +82,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    public void mCreateAndSaveFile(String params, String mJsonResponse) {
-        try {
-            FileWriter file = new FileWriter("/data/data/" + getApplicationContext().getPackageName() + "/" + params);
-            file.write(mJsonResponse);
-            file.flush();
-            file.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
-    public String mReadJsonData(String params) {
-        String mResponse=null;
-        try {
-            File f = new File("/data/data/" + getPackageName() + "/" + params);
-            FileInputStream is = new FileInputStream(f);
-            int size = is.available();
-            byte[] buffer = new byte[size];
-            is.read(buffer);
-            is.close();
-             mResponse = new String(buffer);
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        return mResponse;
-    }
-
-    public void addEntryToJsonFile(String params,JSONObject object,int id) {
-
-        // parse existing/init new JSON
-        File jsonFile = new File("/data/data/" + getPackageName() + "/" + params);
-        String previousJson = null;
-        if (jsonFile.exists()) {
-
-                previousJson = mReadJsonData(params);
-
-        } else {
-            previousJson = "{}";
-        }
-
-        // create new "complex" object
-        JSONObject mO = null;
-
-        try {
-            mO = new JSONObject(previousJson);
-
-            mO.put(lis[id], object); //thanks "retired" answer
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        // generate string from the object
-        String jsonString = null;
-        try {
-            jsonString = mO.toString(1);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        // write back JSON file
-        this.mCreateAndSaveFile(params, jsonString);
-
-    }
 
 
 
@@ -183,47 +122,112 @@ public class MainActivity extends AppCompatActivity {
             pDialog.show();
 
         }
+        private void checkExternalMedia(){
+            boolean mExternalStorageAvailable = false;
+            boolean mExternalStorageWriteable = false;
+            String state = Environment.getExternalStorageState();
+
+            if (Environment.MEDIA_MOUNTED.equals(state)) {
+                // Can read and write the media
+                mExternalStorageAvailable = mExternalStorageWriteable = true;
+            } else if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
+                // Can only read the media
+                mExternalStorageAvailable = true;
+                mExternalStorageWriteable = false;
+            } else {
+                // Can't read or write
+                mExternalStorageAvailable = mExternalStorageWriteable = false;
+            }
+
+        }
+
+        private void writeToSDFile(){
+
+            // Find the root of the external storage.
+            // See http://developer.android.com/guide/topics/data/data-  storage.html#filesExternal
+
+            File root = android.os.Environment.getExternalStorageDirectory();
+
+            // See http://stackoverflow.com/questions/3551821/android-write-to-sd-card-folder
+
+            File dir = new File (root.getAbsolutePath() + "/download");
+            dir.mkdirs();
+            File jsonFile = new File(dir, "songs.txt");
+
+            try {
+                FileOutputStream f = new FileOutputStream(jsonFile);
+                PrintWriter pw = new PrintWriter(f);
+
+                String jsonString = null;
+                // parse existing/init new JSON
+                try {
+                    //jsonFile = new FileWriter("/data/data/" + getPackageName() + "/" + "songs.json");
+
+                    JSONObject mO = null;
+                    try {
+                        mO = new JSONObject();
+                        int count=0;
+                        for (int i = 0; i < lis.length; i++) {
+                            try {
+                                JSONObject jObjectType = new JSONObject();
+                                String songNames = songlis[i];
+                                String result[] = songNames.split(",");
+                                for (int j = 0; j < result.length; j++) {
+                                    jObjectType.put(result[j], lyricLis[count++]);
+
+                                }
+                                mO.put(lis[i], jObjectType);
+                                Log.d("Length: ",mO.length()+"");
+
+                            }catch (JSONException exp){
+                                exp.printStackTrace();
+                            }
+                        }
+                        try {
+                            jsonString = mO.toString(4);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                        if(jsonFile!=null){
+                            pw.println(jsonString.toString());
+                        }
+                    } catch ( Exception e) {
+                        Log.e(TAG, "Json parsing error: " + e.getMessage());
+                    }
+               }finally{
+                    try {
+                        pw.flush();
+                        pw.close();
+                        f.close();
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+
+
+
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                Log.i(TAG, "******* File not found. Did you" +
+                        " add a WRITE_EXTERNAL_STORAGE permission to the   manifest?");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
 
         @Override
         protected Void doInBackground(Void... voids) {
 
 
-
-
-            try {
-
-                int count=0;
-                for (int i = 0; i < lis.length; i++) {
-                    try {
-                        JSONObject jObjectType = new JSONObject();
-                        String alphabet = lis[i];
-                        String songNames = songlis[i];
-                        String result[] = songNames.split(",");
-                        for (int j = 0; j < result.length; j++) {
-
-                            jObjectType.put(result[i], lyricLis[count++]);
-
-                        }
-                        addEntryToJsonFile("songs.json",jObjectType,count);
-
-
-                    }catch (JSONException exp){
-                        exp.printStackTrace();
-                    }
-
-
-                }
-
-
-
-            } catch ( Exception e) {
-                Log.e(TAG, "Json parsing error: " + e.getMessage());
-
-            }
-
+            checkExternalMedia();
+            writeToSDFile();
 
             return null;
         }
+
 
         @Override
         protected void onPostExecute(Void result) {
