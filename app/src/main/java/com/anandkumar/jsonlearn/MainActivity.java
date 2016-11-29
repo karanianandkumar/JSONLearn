@@ -1,7 +1,6 @@
 package com.anandkumar.jsonlearn;
 
 import android.app.ProgressDialog;
-import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
@@ -14,15 +13,21 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Iterator;
+
+import io.realm.Realm;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -30,7 +35,9 @@ public class MainActivity extends AppCompatActivity {
     private ProgressDialog pDialog;
     private String TAG = MainActivity.class.getSimpleName();
     private String lis[],songlis[],lyricLis[];
+    RealmHelper realmHelper=null;
     private JSONObject jsonSongsData;
+    Realm realm;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,36 +45,54 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+
+
+
+        realm.init(this);
+        realm=Realm.getDefaultInstance();
+        Log.d("Realm status",realm.toString());
+
         songsList=new ArrayList();
 
+        realmHelper=new RealmHelper(realm);
 
+        saveData();
+        realmHelper.save(songsList);
+
+        ArrayList<String> al=realmHelper.retrieveAlphabets();
+
+
+            Log.d("Alpht:: ",al.size()+"");
+
+/*
 
         Resources res = getResources();
 
-         lis = res.getStringArray(R.array.Alphabets);
+        lis = res.getStringArray(R.array.Alphabets);
 
-         songlis = res.getStringArray(R.array.SongList);
-         lyricLis = res.getStringArray(R.array.lyrics);
+        songlis = res.getStringArray(R.array.SongList);
+        lyricLis = res.getStringArray(R.array.lyrics);
 
 
 
-            int count = 0;
-            for (int i = 0; i < lis.length; i++) {
+        int count = 0;
+        for (int i = 0; i < lis.length; i++) {
 
-                String alphabet = lis[i];
-                String songNames = songlis[i];
-                String result[] = songNames.split(",");
-                for (int j = 0; j < result.length; j++) {
+            String alphabet = lis[i];
+            String songNames = songlis[i];
+            String result[] = songNames.split(",");
+            for (int j = 0; j < result.length; j++) {
 
-                    Song s = new Song();
-                    s.setIndex(alphabet);
-                    s.setName(result[j]);
-                    s.setLyric(lyricLis[count]);
-                    songsList.add(s);
+                Song s = new Song();
+                s.setIndex(alphabet);
+                s.setName(result[j]);
+                s.setLyric(lyricLis[count]);
+                songsList.add(s);
 
-                    count++;
-                }
+                count++;
             }
+        }
+*/
 
 
                 FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -75,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Toast.makeText(MainActivity.this,"Total: "+songsList.size(),Toast.LENGTH_SHORT).show();
-                new SongsData().execute();
+               // new SongsData().execute();
 
             }
         });
@@ -164,16 +189,23 @@ public class MainActivity extends AppCompatActivity {
                     //jsonFile = new FileWriter("/data/data/" + getPackageName() + "/" + "songs.json");
 
                     JSONObject mO = null;
+                    JSONObject alphabets=new JSONObject();
                     try {
                         mO = new JSONObject();
+
                         int count=0;
                         for (int i = 0; i < lis.length; i++) {
                             try {
-                                JSONObject jObjectType = new JSONObject();
+                                JSONArray jObjectType = new JSONArray();
                                 String songNames = songlis[i];
                                 String result[] = songNames.split(",");
                                 for (int j = 0; j < result.length; j++) {
-                                    jObjectType.put(result[j], lyricLis[count++]);
+                                    JSONObject song=new JSONObject();
+                                    song.put("name",result[j]);
+                                    song.put("lyric",lyricLis[count++]);
+                                    song.put("audio","");
+                                    song.put("video","");
+                                    jObjectType.put(song);
 
                                 }
                                 mO.put(lis[i], jObjectType);
@@ -183,8 +215,9 @@ public class MainActivity extends AppCompatActivity {
                                 exp.printStackTrace();
                             }
                         }
+                        alphabets.put("alphabets",mO);
                         try {
-                            jsonString = mO.toString(4);
+                            jsonString = alphabets.toString(4);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -218,12 +251,53 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
+
+
+
         @Override
         protected Void doInBackground(Void... voids) {
 
 
-            checkExternalMedia();
-            writeToSDFile();
+            //checkExternalMedia();
+            //writeToSDFile();
+
+
+            String jsonData=readJSONFile();
+            int count=1;
+
+            try {
+                // Parse the data into jsonobject to get original data in form of json.
+                JSONObject jObject = new JSONObject(jsonData);
+
+
+                Iterator iterator=jObject.keys();
+                while (iterator.hasNext()){
+                        String alphabet=iterator.next().toString();
+                    JSONArray jsonSongNames = jObject.getJSONArray(alphabet);
+
+                    for (int i = 0; i < jsonSongNames.length(); i++) {
+                        Song song=new Song();
+                        song.setNumber(count++);
+                        song.setIndex(alphabet);
+                        song.setName(jsonSongNames.getJSONObject(i).getString("name"));
+                        song.setLyric(jsonSongNames.getJSONObject(i).getString("lyric"));
+                        song.setAudio(jsonSongNames.getJSONObject(i).getString("audio"));
+                        song.setVideo(jsonSongNames.getJSONObject(i).getString("video"));
+
+                        songsList.add(song);
+                    }
+                }
+
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            Log.d("Songs Length:: ",songsList.size()+"");
+
+
+
+
 
             return null;
         }
@@ -239,5 +313,64 @@ public class MainActivity extends AppCompatActivity {
 
 
         }
+    }
+    public String readJSONFile(){
+        InputStream inputStream = getResources().openRawResource(R.raw.songs);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+        int ctr;
+        try {
+            ctr = inputStream.read();
+            while (ctr != -1) {
+                byteArrayOutputStream.write(ctr);
+                ctr = inputStream.read();
+            }
+            inputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        return byteArrayOutputStream.toString();
+    }
+
+    public void saveData(){
+
+        String jsonData=readJSONFile();
+        int count=1;
+
+        try {
+            // Parse the data into jsonobject to get original data in form of json.
+            JSONObject jObject = new JSONObject(jsonData);
+
+
+            Iterator iterator=jObject.keys();
+            while (iterator.hasNext()){
+                String alphabet=iterator.next().toString();
+                JSONArray jsonSongNames = jObject.getJSONArray(alphabet);
+
+                for (int i = 0; i < jsonSongNames.length(); i++) {
+                    Song song=new Song();
+                    song.setNumber(count++);
+                    song.setIndex(alphabet);
+                    song.setName(jsonSongNames.getJSONObject(i).getString("name"));
+                    song.setLyric(jsonSongNames.getJSONObject(i).getString("lyric"));
+                    song.setAudio(jsonSongNames.getJSONObject(i).getString("audio"));
+                    song.setVideo(jsonSongNames.getJSONObject(i).getString("video"));
+
+                    songsList.add(song);
+                }
+            }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        Log.d("Songs Length:: ",songsList.size()+"");
+
+
+
+
     }
 }
