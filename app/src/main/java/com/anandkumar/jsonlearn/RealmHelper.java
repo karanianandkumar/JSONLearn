@@ -42,17 +42,15 @@ public class RealmHelper {
     }
     //Retrieval
 
-    public ArrayList<String> retrieveNames(String index){
+    public int retrieveNames(String index){
 
         ArrayList<String> songsList=new ArrayList();
         RealmQuery<Song> Query=realm.where(Song.class);
         RealmResults<Song> songs=Query.equalTo("index",index).findAll();
 
-        for(Song s:songs){
-            songsList.add(s.getName());
-        }
 
-        return songsList;
+
+        return songs.size();
 
     }
     public ArrayList<String> retrieveAlphabets(){

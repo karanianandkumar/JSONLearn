@@ -1,6 +1,7 @@
 package com.anandkumar.jsonlearn;
 
 import android.app.ProgressDialog;
+import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
@@ -11,6 +12,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.GridView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -25,19 +29,23 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 
 import io.realm.Realm;
 
 public class MainActivity extends AppCompatActivity {
 
-    private ArrayList<Song> songsList;
+    private ArrayList<Song> songsList=null;
     private ProgressDialog pDialog;
     private String TAG = MainActivity.class.getSimpleName();
-    private String lis[],songlis[],lyricLis[];
-    RealmHelper realmHelper=null;
-    private JSONObject jsonSongsData;
+    private String lis[], songlis[], lyricLis[];
+    RealmHelper realmHelper = null;
+    private GridView gridView;
+    private ArrayAdapter adapter;
+    private ArrayList<String> alphabets=null;
     Realm realm;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,25 +53,40 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        gridView=(GridView)findViewById(R.id.gridview);
+
+        realm = Realm.getDefaultInstance();
+        Log.d("Realm status", realm.toString());
+
+        songsList = new ArrayList();
+
+        realmHelper = new RealmHelper(realm);
+
+        if(!Preferences.readBoolean(getApplicationContext(),Preferences.initialize,false)){
+            saveData();
+            Preferences.writeBoolean(getApplicationContext(),Preferences.initialize,true);
+        }
 
 
-
-        realm.init(this);
-        realm=Realm.getDefaultInstance();
-        Log.d("Realm status",realm.toString());
-
-        songsList=new ArrayList();
-
-        realmHelper=new RealmHelper(realm);
-
-        saveData();
         realmHelper.save(songsList);
 
-        ArrayList<String> al=realmHelper.retrieveAlphabets();
 
 
-            Log.d("Alpht:: ",al.size()+"");
 
+        Resources resources=getResources();
+        alphabets= new ArrayList<String>(Arrays.asList(resources.getStringArray(R.array.Alphabets)));
+
+        adapter=new ArrayAdapter(this,android.R.layout.simple_list_item_1,alphabets);
+
+        gridView.setAdapter(adapter);
+
+
+        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                Toast.makeText(MainActivity.this,alphabets.get(i),Toast.LENGTH_SHORT).show();
+            }
+        });
 /*
 
         Resources res = getResources();
@@ -95,20 +118,17 @@ public class MainActivity extends AppCompatActivity {
 */
 
 
-                FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Toast.makeText(MainActivity.this,"Total: "+songsList.size(),Toast.LENGTH_SHORT).show();
-               // new SongsData().execute();
+                Toast.makeText(MainActivity.this, "Total: " + songsList.size(), Toast.LENGTH_SHORT).show();
+               /*new SongsData().execute(); */
 
             }
         });
 
     }
-
-
-
 
 
     @Override
@@ -134,7 +154,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
     private class SongsData extends AsyncTask<Void, Void, Void> {
 
         @Override
@@ -147,7 +166,8 @@ public class MainActivity extends AppCompatActivity {
             pDialog.show();
 
         }
-        private void checkExternalMedia(){
+
+        private void checkExternalMedia() {
             boolean mExternalStorageAvailable = false;
             boolean mExternalStorageWriteable = false;
             String state = Environment.getExternalStorageState();
@@ -166,7 +186,7 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-        private void writeToSDFile(){
+        private void writeToSDFile() {
 
             // Find the root of the external storage.
             // See http://developer.android.com/guide/topics/data/data-  storage.html#filesExternal
@@ -175,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
 
             // See http://stackoverflow.com/questions/3551821/android-write-to-sd-card-folder
 
-            File dir = new File (root.getAbsolutePath() + "/download");
+            File dir = new File(root.getAbsolutePath() + "/download");
             dir.mkdirs();
             File jsonFile = new File(dir, "songs.txt");
 
@@ -189,45 +209,45 @@ public class MainActivity extends AppCompatActivity {
                     //jsonFile = new FileWriter("/data/data/" + getPackageName() + "/" + "songs.json");
 
                     JSONObject mO = null;
-                    JSONObject alphabets=new JSONObject();
+                    JSONObject alphabets = new JSONObject();
                     try {
                         mO = new JSONObject();
 
-                        int count=0;
+                        int count = 0;
                         for (int i = 0; i < lis.length; i++) {
                             try {
                                 JSONArray jObjectType = new JSONArray();
                                 String songNames = songlis[i];
                                 String result[] = songNames.split(",");
                                 for (int j = 0; j < result.length; j++) {
-                                    JSONObject song=new JSONObject();
-                                    song.put("name",result[j]);
-                                    song.put("lyric",lyricLis[count++]);
-                                    song.put("audio","");
-                                    song.put("video","");
+                                    JSONObject song = new JSONObject();
+                                    song.put("name", result[j]);
+                                    song.put("lyric", lyricLis[count++]);
+                                    song.put("audio", "");
+                                    song.put("video", "");
                                     jObjectType.put(song);
 
                                 }
                                 mO.put(lis[i], jObjectType);
-                                Log.d("Length: ",mO.length()+"");
+                                Log.d("Length: ", mO.length() + "");
 
-                            }catch (JSONException exp){
+                            } catch (JSONException exp) {
                                 exp.printStackTrace();
                             }
                         }
-                        alphabets.put("alphabets",mO);
+                        alphabets.put("alphabets", mO);
                         try {
                             jsonString = alphabets.toString(4);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
-                        if(jsonFile!=null){
+                        if (jsonFile != null) {
                             pw.println(jsonString.toString());
                         }
-                    } catch ( Exception e) {
+                    } catch (Exception e) {
                         Log.e(TAG, "Json parsing error: " + e.getMessage());
                     }
-               }finally{
+                } finally {
                     try {
                         pw.flush();
                         pw.close();
@@ -237,8 +257,6 @@ public class MainActivity extends AppCompatActivity {
                         e.printStackTrace();
                     }
                 }
-
-
 
 
             } catch (FileNotFoundException e) {
@@ -252,8 +270,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-
-
         @Override
         protected Void doInBackground(Void... voids) {
 
@@ -262,22 +278,22 @@ public class MainActivity extends AppCompatActivity {
             //writeToSDFile();
 
 
-            String jsonData=readJSONFile();
-            int count=1;
+            String jsonData = readJSONFile();
+            int count = 1;
 
             try {
                 // Parse the data into jsonobject to get original data in form of json.
                 JSONObject jObject = new JSONObject(jsonData);
 
 
-                Iterator iterator=jObject.keys();
-                while (iterator.hasNext()){
-                        String alphabet=iterator.next().toString();
+                Iterator iterator = jObject.keys();
+                while (iterator.hasNext()) {
+                    String alphabet = iterator.next().toString();
                     JSONArray jsonSongNames = jObject.getJSONArray(alphabet);
 
                     for (int i = 0; i < jsonSongNames.length(); i++) {
-                        Song song=new Song();
-                        song.setNumber(count++);
+                        Song song = new Song();
+
                         song.setIndex(alphabet);
                         song.setName(jsonSongNames.getJSONObject(i).getString("name"));
                         song.setLyric(jsonSongNames.getJSONObject(i).getString("lyric"));
@@ -293,10 +309,7 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
 
-            Log.d("Songs Length:: ",songsList.size()+"");
-
-
-
+            Log.d("Songs Length:: ", songsList.size() + "");
 
 
             return null;
@@ -314,7 +327,8 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
-    public String readJSONFile(){
+
+    public String readJSONFile() {
         InputStream inputStream = getResources().openRawResource(R.raw.songs);
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
@@ -334,24 +348,24 @@ public class MainActivity extends AppCompatActivity {
         return byteArrayOutputStream.toString();
     }
 
-    public void saveData(){
+    public void saveData() {
 
-        String jsonData=readJSONFile();
-        int count=1;
+        String jsonData = readJSONFile();
+        int count = 1;
 
         try {
             // Parse the data into jsonobject to get original data in form of json.
             JSONObject jObject = new JSONObject(jsonData);
 
 
-            Iterator iterator=jObject.keys();
-            while (iterator.hasNext()){
-                String alphabet=iterator.next().toString();
+            Iterator iterator = jObject.keys();
+            while (iterator.hasNext()) {
+                String alphabet = iterator.next().toString();
                 JSONArray jsonSongNames = jObject.getJSONArray(alphabet);
 
                 for (int i = 0; i < jsonSongNames.length(); i++) {
-                    Song song=new Song();
-                    song.setNumber(count++);
+                    Song song = new Song();
+
                     song.setIndex(alphabet);
                     song.setName(jsonSongNames.getJSONObject(i).getString("name"));
                     song.setLyric(jsonSongNames.getJSONObject(i).getString("lyric"));
@@ -367,10 +381,15 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        Log.d("Songs Length:: ",songsList.size()+"");
 
 
 
+    }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        realm.close();
+        //Realm.deleteRealm(realm.getConfiguration());
     }
 }

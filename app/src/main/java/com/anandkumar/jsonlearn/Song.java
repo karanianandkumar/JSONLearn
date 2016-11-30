@@ -1,22 +1,19 @@
 package com.anandkumar.jsonlearn;
 
 import io.realm.RealmObject;
+import io.realm.annotations.PrimaryKey;
 
 /**
  * Created by Anand on 11/27/2016.
  */
 
 public class Song extends RealmObject{
-    private int number;
-    private String index,name,lyric,audio,video;
 
-    public int getNumber() {
-        return number;
-    }
+    @PrimaryKey
+    private String name;
 
-    public void setNumber(int number) {
-        this.number = number;
-    }
+    private String index,lyric,audio,video;
+
 
     public String getAudio() {
         return audio;
