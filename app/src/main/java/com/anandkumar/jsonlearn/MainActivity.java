@@ -7,12 +7,14 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.DefaultItemAnimator;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.GridView;
 import android.widget.Toast;
@@ -36,7 +38,7 @@ import io.realm.Realm;
 
 public class MainActivity extends AppCompatActivity {
 
-    private ArrayList<Song> songsList=null;
+    public ArrayList<Song> songsList=new ArrayList();
     private ProgressDialog pDialog;
     private String TAG = MainActivity.class.getSimpleName();
     private String lis[], songlis[], lyricLis[];
@@ -44,7 +46,10 @@ public class MainActivity extends AppCompatActivity {
     private GridView gridView;
     private ArrayAdapter adapter;
     private ArrayList<String> alphabets=null;
+    private AlphabetAdapter alphabetAdapter;
+    private SongsAdapter songsAdapter;
     Realm realm;
+    RecyclerView alphabetRecyclerView,songNameRecyclerView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,40 +58,64 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        gridView=(GridView)findViewById(R.id.gridview);
+        /**
+         * Initializing Realm and storing data */
 
         realm = Realm.getDefaultInstance();
         Log.d("Realm status", realm.toString());
-
-        songsList = new ArrayList();
-
         realmHelper = new RealmHelper(realm);
 
         if(!Preferences.readBoolean(getApplicationContext(),Preferences.initialize,false)){
             saveData();
             Preferences.writeBoolean(getApplicationContext(),Preferences.initialize,true);
         }
-
-
         realmHelper.save(songsList);
-
-
-
 
         Resources resources=getResources();
         alphabets= new ArrayList<String>(Arrays.asList(resources.getStringArray(R.array.Alphabets)));
-
-        adapter=new ArrayAdapter(this,android.R.layout.simple_list_item_1,alphabets);
-
-        gridView.setAdapter(adapter);
+        songsList=realmHelper.retrieveNames(alphabets.get(0));
 
 
-        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        songNameRecyclerView=(RecyclerView)findViewById(R.id.songsList);
+        RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(getApplicationContext());
+        songNameRecyclerView.setLayoutManager(mLayoutManager);
+        songNameRecyclerView.setItemAnimator(new DefaultItemAnimator());
+        songsAdapter=new SongsAdapter(songsList);
+        songNameRecyclerView.setAdapter(songsAdapter);
+        // Alphabet row recyclerview
+
+        alphabetRecyclerView=(RecyclerView)findViewById(R.id.alphabetList);
+        alphabetAdapter=new AlphabetAdapter(alphabets, new AlphabetAdapter.AlphabetOnClick() {
             @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                Toast.makeText(MainActivity.this,alphabets.get(i),Toast.LENGTH_SHORT).show();
+            public void onclick(String s) {
+                songsList=realmHelper.retrieveNames(s);
+                songNameRecyclerView.setAdapter(new SongsAdapter(songsList));
+                songNameRecyclerView.invalidate();
+                //songsAdapter.notifyDataSetChanged();
             }
         });
+        alphabetRecyclerView.setAdapter(alphabetAdapter);
+        LinearLayoutManager layoutManager
+                = new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false);
+        alphabetRecyclerView.setLayoutManager(layoutManager);
+
+
+        //SongNames recyclerview
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*
 
         Resources res = getResources();
@@ -253,7 +282,7 @@ public class MainActivity extends AppCompatActivity {
                         pw.close();
                         f.close();
                     } catch (IOException e) {
-                        // TODO Auto-generated catch block
+
                         e.printStackTrace();
                     }
                 }
