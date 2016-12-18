@@ -1,5 +1,6 @@
 package com.anandkumar.jsonlearn;
 
+import android.content.Intent;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -47,6 +48,9 @@ public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.MyViewHolder
             @Override
             public void onClick(View view) {
                 Toast.makeText(view.getContext(),song.getLyric(),Toast.LENGTH_SHORT).show();
+                Intent intent=new Intent(view.getContext(),LyricDisplayActivity.class);
+                intent.putExtra("Lyric",song.getLyric());
+                view.getContext().startActivity(intent);
             }
         });
 
